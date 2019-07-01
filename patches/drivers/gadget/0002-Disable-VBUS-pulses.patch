@@ -1,0 +1,45 @@
+From 63a1337ca37f5c0502082fbb22e4717bc22c38d2 Mon Sep 17 00:00:00 2001
+From: Tavi Afilipoai <tavi@chaibio.com>
+Date: Mon, 1 Jul 2019 09:47:16 -0700
+Subject: [PATCH] Disable VBUS pulses
+
+These pulses were causing random system reboots
+Reference:
+http://e2e.ti.com/support/processors/f/791/p/814464/3018505#3018505
+---
+ drivers/usb/musb/musb_dsps.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/usb/musb/musb_dsps.c b/drivers/usb/musb/musb_dsps.c
+index 1ac3ca8e6808..4fa2456ee801 100644
+--- a/drivers/usb/musb/musb_dsps.c
++++ b/drivers/usb/musb/musb_dsps.c
+@@ -196,9 +196,11 @@ static void dsps_musb_enable(struct musb *musb)
+ 
+ 	musb_writel(reg_base, wrp->epintr_set, epmask);
+ 	musb_writel(reg_base, wrp->coreintr_set, coremask);
+-	/* start polling for ID change in dual-role idle mode */
+-	if (musb->xceiv->otg->state == OTG_STATE_B_IDLE &&
+-			musb->port_mode == MUSB_PORT_MODE_DUAL_ROLE)
++	/*
++	 * start polling for runtime PM active and idle,
++	 * and for ID change in dual-role idle mode.
++	 */
++	if (musb->xceiv->otg->state == OTG_STATE_B_IDLE)
+ 		dsps_mod_timer(glue, -1);
+ }
+ 
+@@ -265,6 +267,10 @@ static int dsps_check_status(struct musb *musb, void *unused)
+ 				musb->xceiv->otg->state = OTG_STATE_A_IDLE;
+ 				MUSB_HST_MODE(musb);
+ 			}
++
++			if (musb->port_mode == MUSB_PORT_MODE_GADGET)
++				skip_session = 1;
++
+ 			if (!(devctl & MUSB_DEVCTL_SESSION) && !skip_session)
+ 				musb_writeb(mregs, MUSB_DEVCTL,
+ 					    MUSB_DEVCTL_SESSION);
+-- 
+2.11.0
+
